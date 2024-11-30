@@ -1,1 +1,112 @@
+import numpy as np
+import cv2 as cv
+import matplotlib.pyplot as plt
+
+#FAZER LOAD DA IMAGEM '1.JPG'
+image = cv.imread('1.jpg')
+
+#APLICAR FILTRO DE MÉDIA (TAMANHO 7X7 ))
+image_blurred = cv.blur(image, (7, 7))
+
+#APLITCAR THRESHOLD PARA IDENTIFICAR AS CORES VERMELHO. AZUL E BRANCO
+image_hsv = cv.cvtColor(image_blurred, cv.COLOR_BGR2HSV)
+
+V = image_hsv[:, :, 2]
+S = image_hsv[:, :, 1]
+H = image_hsv[:, :, 0]
+
+#cor vermelho
+bwH_V1 = cv.inRange(H, 0, 10)
+bmH_V2 = cv.inRange(H, 170, 179)
+bwS_V = cv.inRange(S, 90, 255)
+bwV_V = cv.inRange(V, 90, 255)
+
+bw_V = (bwH_V1+bmH_V2) * bwS_V * bwV_V
+
+#cor azul
+bwH_A = cv.inRange(H, 100, 130)
+bwS_A = cv.inRange(S, 50, 255)
+bwV_A = cv.inRange(V, 50, 255)
+
+bw_A = bwH_A * bwS_A * bwV_A
+
+#cor branca
+bwH_B = cv.inRange(H, 0, 179)
+bwS_B = cv.inRange(S, 0, 30)
+bwV_B = cv.inRange(V, 200, 255)
+
+bw_B = bwH_B * bwS_B * bwV_B
+
+plt.figure(1)
+plt.subplot(221), plt.imshow(cv.cvtColor(image_blurred, cv.COLOR_BGR2RGB)), plt.title('ORIGINAL'), plt.axis('off')
+plt.subplot(222), plt.imshow(bw_A, cmap='gray', vmin=0, vmax=255), plt.title('AZUIS'), plt.axis('off')
+plt.subplot(223), plt.imshow(bw_B, cmap='gray', vmin=0, vmax=255), plt.title('BRANCOS'), plt.axis('off')
+plt.subplot(224), plt.imshow(bw_V, cmap='gray', vmin=0, vmax=255), plt.title('VERMELHOS'), plt.axis('off')
+plt.show()
+
+#APLICAR MORFOLOGIA MATEMÁTICA SE NECESSÁRIO PARA FECHAR BURACOS NOS OBJETOS OU ELIMININAR RUÍDO
+kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (7, 7))
+opening_A = cv.morphologyEx(bw_A, cv.MORPH_OPEN, kernel)
+opening_V = cv.morphologyEx(bw_V, cv.MORPH_OPEN, kernel)
+opening_B = cv.morphologyEx(bw_B, cv.MORPH_OPEN, kernel)
+
+#CALCULAR NÚMERO DE OBJETOS, PROPRIEDADES DESTES (ÁREA, CENTRO E BOUNDING BOX) E VISUALIZAR
+connectivity = 8
+num_labels_A, labels_A, stats_A, centroids_A = cv.connectedComponentsWithStats(opening_A, connectivity, cv.CV_32S)
+num_labels_V, labels_V, stats_V, centroids_V = cv.connectedComponentsWithStats(opening_V, connectivity, cv.CV_32S)
+num_labels_B, labels_B, stats_B, centroids_B = cv.connectedComponentsWithStats(opening_B, connectivity, cv.CV_32S)
+
+#Somar os valores dos openings em uma única imagem
+opening = opening_A + opening_B + opening_V
+
+
+# Criar imagem RGB
+mask = np.zeros(image.shape, dtype=np.uint8)
+mask[opening == 255] = 255
+
+for i in range(1, num_labels_A):
+    x = stats_A[i, cv.CC_STAT_LEFT]
+    y = stats_A[i, cv.CC_STAT_TOP]
+    w = stats_A[i, cv.CC_STAT_WIDTH]
+    h = stats_A[i, cv.CC_STAT_HEIGHT]
+    area = stats_A[i, cv.CC_STAT_AREA]
+    (cX, cY) = centroids_A[i]
+
+    cv.rectangle(mask, (x, y), (x + w, y + h), (0, 0, 255), 1)
+    cv.circle(mask, (int(cX), int(cY)), 1, (0, 0, 255), -1)
+    # cv.putText(image, 'text', org, font, fontScale, color, thickness, cv2.LINE_AA)
+    cv.putText(mask, str(i), (int(cX), int(cY)), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv.LINE_AA)
+
+for i in range(1, num_labels_V):
+    x = stats_V[i, cv.CC_STAT_LEFT]
+    y = stats_V[i, cv.CC_STAT_TOP]
+    w = stats_V[i, cv.CC_STAT_WIDTH]
+    h = stats_V[i, cv.CC_STAT_HEIGHT]
+    area = stats_V[i, cv.CC_STAT_AREA]
+    (cX, cY) = centroids_V[i]
+
+    cv.rectangle(mask, (x, y), (x + w, y + h), (0, 0, 255), 1)
+    cv.circle(mask, (int(cX), int(cY)), 1, (0, 0, 255), -1)
+    # cv.putText(image, 'text', org, font, fontScale, color, thickness, cv2.LINE_AA)
+    cv.putText(mask, str(i), (int(cX), int(cY)), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv.LINE_AA)
+
+for i in range(1, num_labels_B):
+    x = stats_B[i, cv.CC_STAT_LEFT]
+    y = stats_B[i, cv.CC_STAT_TOP]
+    w = stats_B[i, cv.CC_STAT_WIDTH]
+    h = stats_B[i, cv.CC_STAT_HEIGHT]
+    area = stats_B[i, cv.CC_STAT_AREA]
+    (cX, cY) = centroids_B[i]
+
+    cv.rectangle(mask, (x, y), (x + w, y + h), (0, 0, 255), 1)
+    cv.circle(mask, (int(cX), int(cY)), 1, (0, 0, 255), -1)
+    # cv.putText(image, 'text', org, font, fontScale, color, thickness, cv2.LINE_AA)
+    cv.putText(mask, str(i), (int(cX), int(cY)), cv.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1, cv.LINE_AA)
+
+
+plt.figure(2)
+plt.subplot(221), plt.imshow(cv.cvtColor(image_blurred, cv.COLOR_BGR2RGB)), plt.title('BLURRED'), plt.axis('off')
+plt.subplot(222), plt.imshow(opening, cmap='gray', vmin=0, vmax=255), plt.title('OPENING'), plt.axis('off')
+plt.subplot(223), plt.imshow(cv.cvtColor(mask, cv.COLOR_BGR2RGB)), plt.title('MASK'), plt.axis('off')
+
 
