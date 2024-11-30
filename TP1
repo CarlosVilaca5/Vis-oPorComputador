@@ -1,7 +1,7 @@
 import numpy as np
 import cv2 as cv
 import matplotlib.pyplot as plt
-
+casascas
 #FAZER LOAD DA IMAGEM '1.JPG'
 image = cv.imread('1.jpg')
 
